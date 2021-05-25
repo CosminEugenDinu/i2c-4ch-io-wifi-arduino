@@ -1,0 +1,7 @@
+{
+    "sketch": "master_wifi.ino",
+    "configuration": "cpu=16MHzatmega328",
+    "board": "arduino:avr:pro",
+    "port": "COM6",
+    "output": "out"
+}

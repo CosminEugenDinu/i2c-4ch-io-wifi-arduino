@@ -1,0 +1,7 @@
+{
+    "sketch": "dp_io.ino",
+    "configuration": "cpu=atmega328",
+    "board": "arduino:avr:nano",
+    "port": "COM7",
+    "output": "out"
+}
