@@ -1,16 +1,22 @@
 #include <Wire.h>
 
-#define wireMsgLen 5
-// const byte wireDeviceAddr = 1;
+void unpack_5c4n(char c8b[5], short n10b[4]);
+void pack_4n5c(short n10b[4], char c8b[5]);
 
-// wire (i2c) message received
+#define wireMsgLen 5 // represent five 8bit numbers
+#define wireValLen 4 // represent four 10bit numbers
+const byte wireDevices = 2;
+
+//wire (I2C) message received
 char wireMsgRec[wireMsgLen];
-// sequence of 4 10bit numbers unpacked from wire message
-short wireValRec[4];
+//wire (I2C) message to send
+char wireMsgSent[wireMsgLen];
 
-char serialMsgSent[8];
+// sequence of 4 10bit numbers received over i2c
+short wireValRec[wireValLen];
+// sequence of 4 10bit numbers to send over i2c
+short wireValSent[wireValLen];
 
-char printStr[] = "0000";
 
 void setup()
 {
@@ -21,13 +27,15 @@ void setup()
 void loop()
 {
   byte msgLen = wireMsgLen;
-  byte wireDevices = 2;
-  while (wireDevices) {
+  // wire addresses 0 - 7 are reserved; first usable addr is 8
+  byte wireDevAddr = wireDevices + 7;
+  while (7 < wireDevAddr)
+  {
     Serial.write("dev");
-    Serial.write(wireDevices+'0');
+    Serial.write(wireDevAddr + '0');
     Serial.write(':');
     // delay(2000);
-    Wire.requestFrom(wireDevices--, msgLen);
+    Wire.requestFrom(wireDevAddr--, msgLen);
     byte i = 0;
     while (Wire.available())
     {                       // slave may send less than requested
@@ -35,25 +43,37 @@ void loop()
       wireMsgRec[i++] = c;
     }
     delay(10);
-    unpackWireMsg(wireValRec, wireMsgRec);
-    for (byte i = 0; i < 4; i++) {
-      numToStr(printStr, wireValRec[i], 4);
-      Serial.write(i+'0');
+    unpack_5c4n(wireMsgRec, wireValRec);
+    for (byte i = 0; i < 4; i++)
+    {
+      Serial.write(i + '0');
       Serial.write(':');
-      Serial.write(printStr);
+      Serial.print(wireValRec[i], DEC);
       Serial.write(',');
     }
-
-  } 
+  }
   Serial.println("");
-  // if (Serial.available() > 0) {
-  //   Serial.readBytes(serialReceived, wireMessageLen);
-  // }
-
-  // Wire.beginTransmission(wireDeviceAddr);
-  // Wire.write(message);
-  // Wire.write(serialReceived);
-  // Wire.endTransmission();
+  String serialInput = "";
+  if (Serial.available() > 0)
+  {
+    // Serial.readBytes(serialReceived, wireMessageLen);
+    serialInput = Serial.readString();
+  }
+  int numRec = serialInput.toInt();
+  if (0 < numRec && numRec < 256)
+  {
+    wireValSent[0] = (short)numRec;
+    pack_4n5c(wireValSent, wireMsgSent);
+    Wire.beginTransmission(8);
+    Wire.write(wireMsgSent);
+    Wire.endTransmission();
+  }
+  else if (numRec != 0)
+  {
+    Serial.print("Error: Pontentiometer value range 0-255: ");
+    Serial.print(numRec, DEC);
+    Serial.println();
+  }
   delay(500);
   // delay(10);
 }
@@ -81,27 +101,34 @@ void numToStr(char *digits, int num, int len)
   }
 }
 
-void unpackWireMsg(short wireVals[4], char wireMsg[5])
+void unpack_5c4n(char c8b[5], short n10b[4])
 {
-  wireVals[0] = ((wireMsg[0] & 0xff) << 2) | (wireMsg[1] >> 6) & 0x3;
-  wireVals[1] = ((wireMsg[1] & 0x3f) << 4) | (wireMsg[2] >> 4) & 0xf;
-  wireVals[2] = ((wireMsg[2] & 0xf) << 6) | (wireMsg[3] >> 2) & 0x3f;
-  wireVals[3] = ((wireMsg[3] & 0x3) << 8) & 0xff | wireMsg[4];
+
+  n10b[0] = ((c8b[0] & 0xff) << 2) | (c8b[1] >> 6) & 0x3;
+  n10b[1] = ((c8b[1] & 0x3f) << 4) | (c8b[2] >> 4) & 0xf;
+  n10b[2] = ((c8b[2] & 0xf) << 6) | (c8b[3] >> 2) & 0x3f;
+  n10b[3] = ((c8b[3] & 0x3) << 8) | c8b[4] & 0xff;
 
   // change from signed to unsigned numbers
-  for (char i = 0; i < 4; i++)
+  for (int i = 0; i < 4; i++)
   {
-    wireVals[i] = wireVals[i] < 0 ? 1024 + wireVals[i] : wireVals[i];
+    n10b[i] = (n10b[i] < 0) ? 1024 + n10b[i] : n10b[i];
   }
 }
 
-void packWireMsg(char wireMsg[5], short wireVals[4])
+void pack_4n5c(short n10b[4], char c8b[5])
 {
-  wireMsg[0] = wireVals[0] >> 2;
-  wireMsg[1] = (wireVals[0] << 6) | (wireVals[1] >> 4);
-  wireMsg[2] = (wireVals[1] << 4) | (wireVals[2] >> 6);
-  wireMsg[3] = (wireVals[2] << 2) | (wireVals[3] >> 8);
-  wireMsg[4] = wireVals[3];
+  c8b[0] = n10b[0] >> 2;
+  c8b[1] = (n10b[0] << 6) | (n10b[1] >> 4);
+  c8b[2] = (n10b[1] << 4) | (n10b[2] >> 6);
+  c8b[3] = (n10b[2] << 2) | (n10b[3] >> 8);
+  c8b[4] = n10b[3];
+
+  // change from signed to unsigned numbers
+  for (int i = 0; i < 4; i++)
+  {
+    c8b[i] = (c8b[i] < 0) ? 256 + c8b[i] : c8b[i];
+  }
 }
 
 /************ library END *******************/
