@@ -1,0 +1,5 @@
+*********************************************************************************
+1. i2c slave devices should continuous (in main loop) read analog pins 0 - 3
+in global array variable, at least 10 records/pin (then calculate medium);
+2. at i2c request, return medium of those 10 values/pin from global values array;
+3. send from master only one byte to set digital potentiometer val (0 - 255);
