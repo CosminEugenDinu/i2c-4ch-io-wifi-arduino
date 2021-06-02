@@ -90,7 +90,6 @@ void wireReqEvent()
 void loop()
 {
   delay(10);
-
 }
 
 /************ library ***********************/
