@@ -79,27 +79,6 @@ void loop()
 }
 
 /************ library ***********************/
-void numToStr(char *digits, int num, int len)
-{
-  char digit = 0;
-  char zeroAscii = 48;
-  int k_digit = len;
-  // digits[len] = '\0'; // stream terminator character
-  while (k_digit)
-  {
-    int exp = len - k_digit + 1;
-    int base = 10;
-    int pow = 1;
-    while (exp)
-    {
-      pow *= base;
-      exp -= 1;
-    }
-    digit = (num % pow - digit) / (pow / base);
-    digits[k_digit - 1] = digit + zeroAscii;
-    k_digit -= 1;
-  }
-}
 
 void unpack_5c4n(char c8b[5], short n10b[4])
 {
