@@ -10,13 +10,12 @@ const byte wireDevices = 2;
 //wire (I2C) message received
 char wireMsgRec[wireMsgLen];
 //wire (I2C) message to send
-char wireMsgSent[wireMsgLen];
+char wireMsgSent[wireMsgLen] = {0};
 
 // sequence of 4 10bit numbers received over i2c
 short wireValRec[wireValLen];
 // sequence of 4 10bit numbers to send over i2c
-short wireValSent[wireValLen];
-
+short wireValSent[wireValLen] = {0};
 
 void setup()
 {
@@ -65,8 +64,9 @@ void loop()
     wireValSent[0] = (short)numRec;
     pack_4n5c(wireValSent, wireMsgSent);
     Wire.beginTransmission(8);
-    Wire.write(wireMsgSent);
+    Wire.write(wireMsgSent, msgLen);
     Wire.endTransmission();
+    delay(100);
   }
   else if (numRec != 0)
   {
