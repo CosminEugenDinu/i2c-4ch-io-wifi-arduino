@@ -5,15 +5,11 @@ void pack_4n5c(short n10b[4], char c8b[5]);
 
 #define wireMsgLen 5 // represent five 8bit numbers
 #define wireValLen 4 // represent four 10bit numbers
-const byte wireDevices = 2;
+const byte wireDevices = 1; // number of connected wire devices
 
-//wire (I2C) message received
-char wireMsgRec[wireMsgLen];
+
 //wire (I2C) message to send
 char wireMsgSent[wireMsgLen] = {0};
-
-// sequence of 4 10bit numbers received over i2c
-short wireValRec[wireValLen];
 // sequence of 4 10bit numbers to send over i2c
 short wireValSent[wireValLen] = {0};
 
@@ -26,6 +22,12 @@ void setup()
 void loop()
 {
   byte msgLen = wireMsgLen;
+
+  //wire (I2C) message received
+  char wireMsgRec[wireMsgLen] = {0};
+  // sequence of 4 10bit numbers received over i2c
+  short wireValRec[wireValLen] = {0};
+
   // wire addresses 0 - 7 are reserved; first usable addr is 8
   byte wireDevAddr = wireDevices + 7;
   while (7 < wireDevAddr)
@@ -33,7 +35,7 @@ void loop()
     Serial.write("dev");
     Serial.write(wireDevAddr + '0');
     Serial.write(':');
-    // delay(2000);
+
     Wire.requestFrom(wireDevAddr--, msgLen);
     byte i = 0;
     while (Wire.available())
@@ -41,7 +43,7 @@ void loop()
       char c = Wire.read(); // receive a byte as character
       wireMsgRec[i++] = c;
     }
-    delay(10);
+    delay(100);
     unpack_5c4n(wireMsgRec, wireValRec);
     for (byte i = 0; i < 4; i++)
     {
@@ -74,8 +76,7 @@ void loop()
     Serial.print(numRec, DEC);
     Serial.println();
   }
-  delay(500);
-  // delay(10);
+  delay(10);
 }
 
 /************ library ***********************/

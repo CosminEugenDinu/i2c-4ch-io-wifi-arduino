@@ -17,9 +17,9 @@ const byte spi_CS_pin10 = 10; // SPI ship select
 const byte potAddr = 0x11;    // digital potentiometer address
 
 //wire (I2C) message to send
-char wireMsgSent[wireMsgLen];
+char wireMsgSent[wireMsgLen] = {0};
 // sequence of 4 10bit numbers to send over i2c
-short wireValSent[wireValLen];
+short wireValSent[wireValLen] = {0};
 
 //wire (I2C) message received
 char wireMsgRec[wireMsgLen] = {0};
@@ -28,10 +28,14 @@ short wireValRec[wireValLen] = {0};
 
 void setup()
 {
-  // Serial.begin(9600);
-  pinMode(spi_CS_pin10, OUTPUT);
-  SPI.begin();
+  // pinMode(spi_CS_pin10, OUTPUT);
+  // SPI.begin();
+
   Serial.begin(9600);
+
+  Wire.begin(wireThisAddr);     // join i2c bus with this device address
+  Wire.onRequest(wireReqEvent); // register event
+  // // Wire.onReceive(wireRecEvent);
 
   // // adjust Highest Resistance .
   // digitalPotWrite(potAddr, 0x00);
@@ -45,43 +49,6 @@ void setup()
   // digitalPotWrite(potAddr, 0xFF);
   // delay(1000);
 
-  Wire.begin(wireThisAddr);     // join i2c bus with this device address
-  Wire.onRequest(wireReqEvent); // register event
-  Wire.onReceive(wireRecEvent);
-}
-
-void wireRecEvent(int howMany)
-{
-  for (int i = 0; i < wireMsgLen; i++)
-  {
-    char c = Wire.read();
-    wireMsgRec[i] = c;
-  }
-
-  unpack_5c4n(wireMsgRec, wireValRec);
-  const byte potResVal = (byte)wireValRec[0];
-  Serial.println("wireRecEvent Triggered");
-
-  char info1[] = " cb-dev8-wireMsgRec[i]:";
-  for (byte i = 0; i< 5; i++) {
-    info1[20] = i + '0';
-    Serial.print(info1);
-    char * binptr = bin(wireMsgRec[i], 8);
-    Serial.print(binptr);
-    free(binptr);
-  }
-  Serial.println();
-
-  char info2[] = " cb-dev8-wireValRec[i]:";
-  for (byte i = 0; i< 1; i++) {
-    info2[20] = i + '0';
-    Serial.print(info2);
-    Serial.print(wireValRec[i], DEC);
-  }
-  Serial.println();
-
-  digitalPotWrite(potAddr, potResVal);
-  delay(10);
 }
 
 void wireReqEvent()
@@ -92,29 +59,64 @@ void wireReqEvent()
   */
   pack_4n5c(wireValSent, wireMsgSent);
   Wire.write(wireMsgSent);
-
-  // analogRead -> int ranging from 0 to 1023 (0V-5V)
-  wireValSent[0] = (short)analogRead(analog_pin0);
-  delay(10);
-  wireValSent[1] = (short)analogRead(analog_pin1);
-  delay(10);
-  wireValSent[2] = (short)analogRead(analog_pin2);
-  delay(10);
-  wireValSent[3] = (short)analogRead(analog_pin3);
-  delay(10);
 }
 
 void loop()
 {
-  // char info2[] = " loop-dev8-wireValRec[i]:";
-  // for (byte i = 0; i< 4; i++) {
-  //   info2[22] = i + '0';
-  //   Serial.print(info2);
-  //   Serial.print(wireValRec[i], DEC);
-  // }
-  // Serial.println();
-  delay(100);
+  // analogRead -> int ranging from 0 to 1023 (0V-5V)
+  wireValSent[0] = (short)analogRead(analog_pin0);
+  wireValSent[1] = (short)analogRead(analog_pin1);
+  wireValSent[2] = (short)analogRead(analog_pin2);
+  wireValSent[3] = (short)analogRead(analog_pin3);
+
+  pack_4n5c(wireValSent, wireMsgSent);
+  Serial.print(" A0:");
+  Serial.print(wireValSent[0]);
+  Serial.print(" A1:");
+  Serial.print(wireValSent[1]);
+  Serial.print(" A2:");
+  Serial.print(wireValSent[2]);
+  Serial.print(" A3:");
+  Serial.print(wireValSent[3]);
+  Serial.println();
+
+  delay (500);
 }
+
+// void wireRecEvent(int howMany)
+// {
+//   for (int i = 0; i < wireMsgLen; i++)
+//   {
+//     char c = Wire.read();
+//     wireMsgRec[i] = c;
+//   }
+
+//   unpack_5c4n(wireMsgRec, wireValRec);
+//   const byte potResVal = (byte)wireValRec[0];
+
+//   Serial.println("wireRecEvent Triggered");
+//   char info1[] = " cb-dev8-wireMsgRec[i]:";
+//   for (byte i = 0; i< 5; i++) {
+//     info1[20] = i + '0';
+//     Serial.print(info1);
+//     char * binptr = bin(wireMsgRec[i], 8);
+//     Serial.print(binptr);
+//     free(binptr);
+//   }
+//   Serial.println();
+
+//   char info2[] = " cb-dev8-wireValRec[i]:";
+//   for (byte i = 0; i< 1; i++) {
+//     info2[20] = i + '0';
+//     Serial.print(info2);
+//     Serial.print(wireValRec[i], DEC);
+//   }
+//   Serial.println();
+
+//   digitalPotWrite(potAddr, potResVal);
+//   delay(10);
+// }
+
 
 /************ library ***********************/
 
