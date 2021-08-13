@@ -1,17 +1,20 @@
 #include <Wire.h>
+#include <string.h>
 
-void unpack_5c4n(char c8b[5], short n10b[4]);
-void pack_4n5c(short n10b[4], char c8b[5]);
-
-#define wireMsgLen 5 // represent five 8bit numbers
-#define wireValLen 4 // represent four 10bit numbers
-const byte wireDevices = 1; // number of connected wire devices
-
+const byte wireDevices = 4; // number of connected wire devices
+const byte firstDeviceAddr = 7;
+#define wireMsgLen 8 // represent five 8bit numbers
+const byte wireValLen = 4; // represent four numbers
 
 //wire (I2C) message to send
 char wireMsgSent[wireMsgLen] = {0};
 // sequence of 4 10bit numbers to send over i2c
-short wireValSent[wireValLen] = {0};
+short wireValSent[wireValLen];
+
+//wire (I2C) message received
+byte wireMsgRec[wireMsgLen] = {0};
+short wireValsRec[wireValLen];
+
 
 void setup()
 {
@@ -19,63 +22,95 @@ void setup()
   Serial.begin(9600); // start serial for output
 }
 
+// void loop()
+// {
+//   const byte msgLen = wireMsgLen;
+//   Wire.requestFrom(8, 4);
+//   byte msg[4];
+//   byte i = 0;
+//   while (i < 4)
+//   {                       // slave may send less than requested
+//     byte c = Wire.read(); // receive a byte as character
+//     msg[i++] = c;
+//     Serial.print(msg[i-1]);
+//   }
+//   Serial.println();
+//   delay(100);
+// }
+
 void loop()
 {
-  byte msgLen = wireMsgLen;
-
-  //wire (I2C) message received
-  char wireMsgRec[wireMsgLen] = {0};
-  // sequence of 4 10bit numbers received over i2c
-  short wireValRec[wireValLen] = {0};
+  const byte msgLen = wireMsgLen;
+  String responseStr = String("[");
 
   // wire addresses 0 - 7 are reserved; first usable addr is 8
-  byte wireDevAddr = wireDevices + 7;
-  while (7 < wireDevAddr)
+  byte wireDevAddr = wireDevices + firstDeviceAddr;
+  while (firstDeviceAddr < wireDevAddr)
   {
-    Serial.write("dev");
-    Serial.write(wireDevAddr + '0');
-    Serial.write(':');
-
     Wire.requestFrom(wireDevAddr--, msgLen);
     byte i = 0;
-    while (Wire.available())
+    while (i < msgLen)
     {                       // slave may send less than requested
-      char c = Wire.read(); // receive a byte as character
+      byte c = Wire.read(); // receive a byte as character
       wireMsgRec[i++] = c;
     }
-    delay(100);
-    unpack_5c4n(wireMsgRec, wireValRec);
-    for (byte i = 0; i < 4; i++)
+
+    // merge 2 by 2 bytes in one short number
+    wireValsRec[0] = wireMsgRec[0];
+    wireValsRec[0] = (wireValsRec[0] << 8) | wireMsgRec[1];
+
+    wireValsRec[1] = wireMsgRec[2];
+    wireValsRec[1] = (wireValsRec[1] << 8) | wireMsgRec[3];
+    
+    wireValsRec[2] = wireMsgRec[4];
+    wireValsRec[2] = (wireValsRec[2] << 8) | wireMsgRec[5];
+
+    wireValsRec[3] = wireMsgRec[6];
+    wireValsRec[3] = (wireValsRec[3] << 8) | wireMsgRec[7];
+
+    // delay(100);
+    responseStr.concat('[');
+    for (byte i = 0; i < wireValLen; i++)
     {
-      Serial.write(i + '0');
-      Serial.write(':');
-      Serial.print(wireValRec[i], DEC);
-      Serial.write(',');
+      responseStr.concat(String(wireValsRec[i], DEC));
+      if (i < wireValLen - 1) {
+        responseStr.concat(',');
+      }
     }
+    responseStr.concat("]");
+    if (firstDeviceAddr < wireDevAddr) {
+      responseStr.concat(',');
+    }
+
   }
-  Serial.println("");
-  String serialInput = "";
-  if (Serial.available() > 0)
-  {
-    // Serial.readBytes(serialReceived, wireMessageLen);
-    serialInput = Serial.readString();
-  }
-  int numRec = serialInput.toInt();
-  if (0 < numRec && numRec < 256)
-  {
-    wireValSent[0] = (short)numRec;
-    pack_4n5c(wireValSent, wireMsgSent);
-    Wire.beginTransmission(8);
-    Wire.write(wireMsgSent, msgLen);
-    Wire.endTransmission();
-    delay(100);
-  }
-  else if (numRec != 0)
-  {
-    Serial.print("Error: Pontentiometer value range 0-255: ");
-    Serial.print(numRec, DEC);
-    Serial.println();
-  }
+  responseStr.concat("]\n");
+  Serial.print(responseStr);
+
+
+
+  // String serialInput = "";
+  // if (Serial.available() > 0)
+  // {
+  //   // Serial.readBytes(serialReceived, wireMessageLen);
+  //   serialInput = Serial.readString();
+  // }
+  // int numRec = serialInput.toInt();
+  // if (0 < numRec && numRec < 256)
+  // {
+  //   wireValSent[0] = (short)numRec;
+  //   pack_4n5c(wireValSent, wireMsgSent);
+  //   Wire.beginTransmission(8);
+  //   Wire.write(wireMsgSent, msgLen);
+  //   Wire.endTransmission();
+  //   delay(100);
+  // }
+  // else if (numRec != 0)
+  // {
+  //   Serial.print("Error: Pontentiometer value range 0-255: ");
+  //   Serial.print(numRec, DEC);
+  //   Serial.println();
+  // }
+
   delay(10);
 }
 

@@ -1,30 +1,21 @@
 #include <Wire.h>
 #include <SPI.h>
 
-void numToStr(char *digits, int num, int len);
 void digitalPotWrite(int potAddr, int value);
-void unpack_5c4n(char c8b[5], short n10b[4]);
-void pack_4n5c(short n10b[4], char c8b[5]);
 
-#define wireMsgLen 5         // represent five 8bit numbers
-#define wireValLen 4         // represent four 10bit numbers
-const byte wireThisAddr = 8; // addr 0 - 7 are reserved; use 0 - 127
-const byte analog_pin0 = 0;
-const byte analog_pin1 = 1;
-const byte analog_pin2 = 2;
-const byte analog_pin3 = 3;
+const byte wireThisAddr = 11; // addr 0 - 7 are reserved; use 0 - 127
+
+#define wireMsgLen 8  // 8 bytes 
+const byte analogValsLen = 4; // corespond to pins 0..3 
+const byte buffLen = 10; // number of reads per pin -> medium 
+const byte analogPins[analogValsLen] = {A0, A1, A2, A3};
 const byte spi_CS_pin10 = 10; // SPI ship select
 const byte potAddr = 0x11;    // digital potentiometer address
 
 //wire (I2C) message to send
-char wireMsgSent[wireMsgLen] = {0};
-// sequence of 4 10bit numbers to send over i2c
-short wireValSent[wireValLen] = {0};
-
-//wire (I2C) message received
-char wireMsgRec[wireMsgLen] = {0};
-// sequence of 4 10bit numbers received over i2c
-short wireValRec[wireValLen] = {0};
+byte wireMsg[wireMsgLen] = {0};
+short analogBuffers[analogValsLen][buffLen]; 
+short analogVals[analogValsLen] = {0}; // will contain average of values from analogBuffers
 
 void setup()
 {
@@ -51,37 +42,60 @@ void setup()
 
 }
 
+// void wireReqEvent()
+// {
+//   Serial.println("reqest received");
+//   byte msg[4] = {'a','b','c','d'};
+//   Wire.write(msg, 4);
+// }
+
+// void loop() 
+// {
+
+// }
+
+
 void wireReqEvent()
 {
-  /*
-  function that executes whenever data is requested by master
-  this function is registered as an event.
-  */
-  pack_4n5c(wireValSent, wireMsgSent);
-  Wire.write(wireMsgSent);
+  // calculate average
+  for (int i = 0; i < analogValsLen; i++) {
+    int sum = 0;
+    for (int j = 0; j < buffLen; j++) {
+      sum += analogBuffers[i][j];
+    }
+    analogVals[i] = sum / buffLen;
+  }
+
+  // split each short numbers (2 bytes) in 2 parts and store in wireVals
+  wireMsg[0] = (analogVals[0] >> 8) & 0xFF;
+  wireMsg[1] = analogVals[0] & 0xFF;
+
+  wireMsg[2] = (analogVals[1] >> 8) & 0xFF;
+  wireMsg[3] = analogVals[1] & 0xFF;
+
+  wireMsg[4] = (analogVals[2] >> 8) & 0xFF;
+  wireMsg[5] = analogVals[2] & 0xFF;
+
+  wireMsg[6] = (analogVals[3] >> 8) & 0xFF;
+  wireMsg[7] = analogVals[3] & 0xFF;
+  
+  Wire.write(wireMsg, wireMsgLen);
 }
 
 void loop()
 {
   // analogRead -> int ranging from 0 to 1023 (0V-5V)
-  wireValSent[0] = (short)analogRead(analog_pin0);
-  wireValSent[1] = (short)analogRead(analog_pin1);
-  wireValSent[2] = (short)analogRead(analog_pin2);
-  wireValSent[3] = (short)analogRead(analog_pin3);
+  for(int i = 0; i < analogValsLen; i++) {
+    for (int j = 0; j < buffLen; j++) {
+      analogBuffers[i][j] = (short)analogRead(analogPins[i]);
+    }
+  }
 
-  pack_4n5c(wireValSent, wireMsgSent);
-  Serial.print(" A0:");
-  Serial.print(wireValSent[0]);
-  Serial.print(" A1:");
-  Serial.print(wireValSent[1]);
-  Serial.print(" A2:");
-  Serial.print(wireValSent[2]);
-  Serial.print(" A3:");
-  Serial.print(wireValSent[3]);
-  Serial.println();
-
-  delay (500);
+  delay(10);
 }
+
+
+
 
 // void wireRecEvent(int howMany)
 // {
@@ -133,55 +147,5 @@ void digitalPotWrite(byte potAddr, int value)
   digitalWrite(spi_CS_pin10, HIGH);
 }
 
-void unpack_5c4n(char c8b[5], short n10b[4])
-{
-
-  n10b[0] = ((c8b[0] & 0xff) << 2) | (c8b[1] >> 6) & 0x3;
-  n10b[1] = ((c8b[1] & 0x3f) << 4) | (c8b[2] >> 4) & 0xf;
-  n10b[2] = ((c8b[2] & 0xf) << 6) | (c8b[3] >> 2) & 0x3f;
-  n10b[3] = ((c8b[3] & 0x3) << 8) | c8b[4] & 0xff;
-
-  // change from signed to unsigned numbers
-  for (int i = 0; i < 4; i++)
-  {
-    n10b[i] = (n10b[i] < 0) ? 1024 + n10b[i] : n10b[i];
-  }
-}
-
-void pack_4n5c(short n10b[4], char c8b[5])
-{
-  c8b[0] = n10b[0] >> 2;
-  c8b[1] = (n10b[0] << 6) | (n10b[1] >> 4);
-  c8b[2] = (n10b[1] << 4) | (n10b[2] >> 6);
-  c8b[3] = (n10b[2] << 2) | (n10b[3] >> 8);
-  c8b[4] = n10b[3];
-
-  // change from signed to unsigned numbers
-  for (int i = 0; i < 4; i++)
-  {
-    c8b[i] = (c8b[i] < 0) ? 256 + c8b[i] : c8b[i];
-  }
-}
-
-char *bin(int num, int bits)
-{
-    char *str = (char *)malloc(bits + 1);
-
-    int i;
-    for (i = bits - 1; i >= 0; i--)
-    {
-        if (num & 1)
-        {
-            *(str + i) = '1';
-        }
-        else
-        {
-            *(str + i) = '0';
-        }
-        num = num >> 1;
-    }
-    *(str + bits + 1) = '\0';
-    return str;
-}
 
 /************ library END *******************/
